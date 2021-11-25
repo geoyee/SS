@@ -1,0 +1,8 @@
+Images/cq2_data_0_0.tif Labels/cq2_mask_0_0.tif
+Images/cq2_data_0_1.tif Labels/cq2_mask_0_1.tif
+Images/cq2_data_0_2.tif Labels/cq2_mask_0_2.tif
+Images/cq2_data_0_3.tif Labels/cq2_mask_0_3.tif
+Images/cq2_data_1_0.tif Labels/cq2_mask_1_0.tif
+Images/cq2_data_1_1.tif Labels/cq2_mask_1_1.tif
+Images/cq2_data_1_2.tif Labels/cq2_mask_1_2.tif
+Images/cq2_data_1_3.tif Labels/cq2_mask_1_3.tif
