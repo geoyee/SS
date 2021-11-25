@@ -27,25 +27,34 @@ except:
 
 class Raster:
     def __init__(self, 
-                 tif_path: str,
+                 file_path: str,
                  show_band: Union[List[int], Tuple[int]]=[1, 1, 1],
+                 open_grid: bool=False,
                  grid_size: Union[List[int], Tuple[int]]=[512, 512],
                  overlap: Union[List[int], Tuple[int]]=[24, 24]) -> None:
         """ 用于处理遥感栅格数据的类.
         参数:
-            tif_path (str): GTiff数据的路径.
+            file_path (str): 遥感数据的路径.
             show_band (Union[List[int], Tuple[int]], optional): 用于RGB合成显示的波段. 默认为 [1, 1, 1].
+            open_grid (bool, optional): 是否开启宫格. 默认为 False.
             grid_size (Union[List[int], Tuple[int]], optional): 切片大小. 默认为 [512, 512].
+            overlap (Union[List[int], Tuple[int]], optional): 重叠大小. 默认为 [24, 24].
         """
         super(Raster, self).__init__()
-        if osp.exists(tif_path):
-            self.src_data = gdal.Open(tif_path)
+        if osp.exists(file_path):
+            self.file_path = file_path
+            self.src_data = gdal.Open(file_path)
             self.geoinfo = self.__getRasterInfo()
             self.show_band = list(show_band) if self.geoinfo.count != 1 else None
-            self.grid_size = np.array(grid_size)
-            self.overlap = np.array(overlap)
+            self.open_grid = open_grid
+            if open_grid is True:
+                self.grid_size = np.array(grid_size)
+                self.overlap = np.array(overlap)
+                img_size = np.array([self.geoinfo.xsize, self.geoinfo.ysize])
+                self.__grid_count = list(np.ceil(img_size / np.array(grid_size)).astype("uint8"))
+                self.__index = (0, 0)
         else:
-            raise("{0} not exists!".format(tif_path))
+            raise("{0} not exists!".format(file_path))
 
     def __getRasterInfo(self) -> Dict:
         geoinfo = edict()
@@ -60,13 +69,32 @@ class Raster:
     def setBand(self, bands: Union[List[int], Tuple[int]]) -> None:
         self.show_band = list(bands)
 
-    def getArray(self) -> np.array:
+    def getData(self) -> np.array:
+        if self.open_grid is True:
+            r, c = self.__index
+            ima = self.__getGrid(r, c)
+            self.__updateIndex()
+        else:
+            ima = self.__getArray()
+        return ima
+
+    def __updateIndex(self):
+        self.__index[1] += 1
+        if self.__index[1] >= self.__grid_count[1]:
+            self.__index[1] = 0
+            self.__index[0] += 1
+            if self.__index[0] >= self.__grid_count[0]:
+                self.__index[0] = 0
+
+    def __getArray(self) -> np.array:
         ima = self.src_data.ReadAsArray()
         if self.geoinfo.count == 3:
             ima = ima.transpose((1, 2, 0))
         return ima
 
-    def getGrid(self, row: int, col: int) -> np.array:
+    def __getGrid(self, row: int, col: int) -> np.array:
+        if self.open_grid is False:
+            return None
         grid_idx = np.array([row, col])
         ul = grid_idx * (self.grid_size - self.overlap)
         lr = ul + self.grid_size
@@ -102,6 +130,8 @@ class Raster:
                         img_list: List[List[np.array]], 
                         save_path: Union[str, None]=None,
                         geoinfo: Union[Dict, None]=None) -> np.array:
+        if self.open_grid is False:
+            return None
         if geoinfo is None:
             geoinfo = self.geoinfo
         raw_size = (geoinfo.ysize, geoinfo.xsize)

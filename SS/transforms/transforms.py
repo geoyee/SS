@@ -27,10 +27,14 @@ class Compose:
         Returns:
             (tuple). A tuple including image, image info, and label after transformation.
         """
-        if isinstance(im, str):
+        if type(im) is np.ndarray:
             im = im.astype('float32')
-        if im is None:
+        else:
             raise ValueError('Can\'t read The image file {}!'.format(im))
+
+        if label is not None:
+            if type(label) is np.ndarray:
+                label = label.astype('float32')
 
         for op in self.transforms:
             outputs = op(im, label)

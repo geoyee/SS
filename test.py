@@ -13,8 +13,9 @@ train_dataset = RSDataset(
     dataset_root='DataSet',
     num_classes=2,
     mode='train',
-    train_path='DataSet/train_list.txt',
+    file_path='DataSet/train_list.txt',
     separator=' ',
+    big_map=False
 )
 
 for img, lab in train_dataset:
