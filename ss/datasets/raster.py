@@ -78,13 +78,15 @@ class Raster:
             ima = self.__getArray()
         return ima
 
-    def __updateIndex(self):
+    def __updateIndex(self) -> bool:
         self.__index[1] += 1
         if self.__index[1] >= self.__grid_count[1]:
             self.__index[1] = 0
             self.__index[0] += 1
             if self.__index[0] >= self.__grid_count[0]:
                 self.__index[0] = 0
+                return True
+        return False
 
     def __getArray(self) -> np.array:
         ima = self.src_data.ReadAsArray()
