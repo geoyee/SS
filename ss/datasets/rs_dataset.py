@@ -40,6 +40,7 @@ class RSDataset(paddle.io.Dataset):
         self.mode = mode
         self.num_classes = num_classes
         self.ignore_index = ignore_index
+        self.big_map = big_map
 
         if mode.lower() not in ['train', 'val', 'test']:
             raise ValueError(
@@ -77,26 +78,26 @@ class RSDataset(paddle.io.Dataset):
                 else:
                     image_path = os.path.join(self.dataset_root, items[0])
                     label_path = os.path.join(self.dataset_root, items[1])
-                label_worker = None if label_path is None else \
-                               Raster(label_path, [1, 1, 1], big_map, grid_size, overlap)
-                self.file_list.append([
-                    Raster(image_path, rgb_bands, big_map, grid_size, overlap), 
-                    label_worker])
+                image_worker = Raster(image_path, rgb_bands, big_map, grid_size, overlap)
+                label_worker = Raster(label_path, [1, 1, 1], big_map, grid_size, overlap) \
+                               if label_path is not None else None
+                self.file_list.append([image_worker, label_worker])
 
     def __getitem__(self, idx):
-        image_worker, label_worker = self.file_list[idx]
+        if self.big_map is False:
+            curr_image_worker, curr_label_worker = self.file_list[idx]
         if self.mode == 'test':
-            im, _ = self.transforms(im=image_worker.getData())
+            im, _ = self.transforms(im=curr_image_worker.getData())
             im = im[np.newaxis, ...]
-            return im, image_worker.file_path
+            return im, curr_image_worker.file_path
         elif self.mode == 'val':
-            im, _ = self.transforms(im=image_worker.getData())
-            label = label_worker.getData()
+            im, _ = self.transforms(im=curr_image_worker.getData())
+            label = curr_label_worker.getData()
             label = label[np.newaxis, :, :]
             return im, label
         else:
-            im, label = self.transforms(im=image_worker.getData(), 
-                                        label=label_worker.getData())
+            im, label = self.transforms(im=curr_image_worker.getData(), 
+                                        label=curr_label_worker.getData())
             return im, label
 
     def __len__(self):
