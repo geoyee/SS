@@ -50,9 +50,11 @@ class Raster:
             if open_grid is True:
                 self.grid_size = np.array(grid_size)
                 self.overlap = np.array(overlap)
-                img_size = np.array([self.geoinfo.xsize, self.geoinfo.ysize])
-                self.__grid_count = list(np.ceil(img_size / np.array(grid_size)).astype("uint8"))
-                self.__index = (0, 0)
+                img_size = np.array([self.geoinfo.ysize, self.geoinfo.xsize])
+                self.__grid_count = list(
+                    np.ceil(img_size / (self.grid_size - self.overlap)).astype("uint16"))
+                self.__index = np.array([0, 0])
+                self.cyc_grid = True
         else:
             raise("{0} not exists!".format(file_path))
 
@@ -73,7 +75,7 @@ class Raster:
         if self.open_grid is True:
             r, c = self.__index
             ima = self.__getGrid(r, c)
-            self.__updateIndex()
+            self.cyc_grid = self.__updateIndex()
         else:
             ima = self.__getArray()
         return ima
@@ -90,7 +92,7 @@ class Raster:
 
     def __getArray(self) -> np.array:
         ima = self.src_data.ReadAsArray()
-        if self.geoinfo.count == 3:
+        if self.geoinfo.count != 1:
             ima = ima.transpose((1, 2, 0))
         return ima
 
@@ -100,9 +102,21 @@ class Raster:
         grid_idx = np.array([row, col])
         ul = grid_idx * (self.grid_size - self.overlap)
         lr = ul + self.grid_size
-        ima = self.src_data.ReadAsArray(ul[1], ul[0], (lr[1] - ul[1]), (lr[0] - ul[0]))
-        if self.geoinfo.count == 3:
+        xoff, yoff, xsize, ysize = ul[1], ul[0], (lr[1] - ul[1]), (lr[0] - ul[0])
+        if xoff + xsize > self.geoinfo.xsize:
+            xsize = self.geoinfo.xsize - xoff
+        if yoff + ysize > self.geoinfo.ysize:
+            ysize = self.geoinfo.ysize - yoff
+        ima = self.src_data.ReadAsArray(int(xoff), int(yoff), \
+                                        int(xsize), int(ysize))
+        h, w = ima.shape[1:] if len(ima.shape) == 3 else ima.shape  # HWC or HW
+        if self.geoinfo.count != 1:
             ima = ima.transpose((1, 2, 0))
+            tmp = np.zeros((self.grid_size[0], self.grid_size[1], 3), dtype="uint8")
+            tmp[:h, :w, :] = ima
+        else:
+            tmp = np.zeros((self.grid_size[0], self.grid_size[1]), dtype="uint8")
+            tmp[:h, :w] = ima
         return ima
 
     def saveMask(self, img: np.array, save_path: str, 
@@ -138,8 +152,9 @@ class Raster:
             geoinfo = self.geoinfo
         raw_size = (geoinfo.ysize, geoinfo.xsize)
         h, w = self.grid_size
-        row = math.ceil(raw_size[0] / h)
-        col = math.ceil(raw_size[1] / w)
+        # row = math.ceil(raw_size[0] / h)
+        # col = math.ceil(raw_size[1] / w)
+        row, col = len(img_list), len(img_list[0])
         result_1 = np.zeros((h * row, w * col), dtype=np.uint8)
         result_2 = result_1.copy()
         for i in range(row):

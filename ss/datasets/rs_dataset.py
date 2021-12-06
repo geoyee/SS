@@ -41,6 +41,9 @@ class RSDataset(paddle.io.Dataset):
         self.num_classes = num_classes
         self.ignore_index = ignore_index
         self.big_map = big_map
+        self.curr_image_worker = None
+        self.curr_label_worker = None
+        self.__idx = 0
 
         if mode.lower() not in ['train', 'val', 'test']:
             raise ValueError(
@@ -84,20 +87,25 @@ class RSDataset(paddle.io.Dataset):
                 self.file_list.append([image_worker, label_worker])
 
     def __getitem__(self, idx):
-        if self.big_map is False:
-            curr_image_worker, curr_label_worker = self.file_list[idx]
+        if self.big_map is False or \
+           (self.curr_image_worker is None and self.curr_label_worker is None) or \
+           (self.curr_image_worker.cyc_grid is True and self.curr_label_worker.cyc_grid is True):
+            self.curr_image_worker, self.curr_label_worker = self.file_list[self.__idx]
+            self.__idx += 1
+            if self.__idx >= self.__len__():
+                self.__idx = 0
         if self.mode == 'test':
-            im, _ = self.transforms(im=curr_image_worker.getData())
+            im, _ = self.transforms(im=self.curr_image_worker.getData())
             im = im[np.newaxis, ...]
-            return im, curr_image_worker.file_path
+            return im, self.curr_image_worker.file_path
         elif self.mode == 'val':
-            im, _ = self.transforms(im=curr_image_worker.getData())
-            label = curr_label_worker.getData()
+            im, _ = self.transforms(im=self.curr_image_worker.getData())
+            label = self.curr_label_worker.getData()
             label = label[np.newaxis, :, :]
             return im, label
         else:
-            im, label = self.transforms(im=curr_image_worker.getData(), 
-                                        label=curr_label_worker.getData())
+            im, label = self.transforms(im=self.curr_image_worker.getData(), 
+                                        label=self.curr_label_worker.getData())
             return im, label
 
     def __len__(self):
